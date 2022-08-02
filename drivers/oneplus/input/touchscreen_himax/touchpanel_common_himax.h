@@ -575,14 +575,14 @@ struct touchpanel_data {
 
 struct touchpanel_operations {
 	int  (*ftm_process)                      (void *chip_data);
-//	u32  (*u32_trigger_reason)   (void *chip_data, int gesture_enable, int is_suspended);
-//	void (*enable_fingerprint)   (void *chip_data, uint32_t enable);
-//	void (*enable_gesture_mask)  (void *chip_data, uint32_t enable);
-//	void (*screenon_fingerprint_info) (void *chip_data, struct fp_underscreen_info *fp_tpinfo);
-//	void (*set_touch_direction)  (void *chip_data, uint8_t dir);
-//	u8   (*get_touch_direction)  (void *chip_data);
-	void (*health_report)        (void *chip_data, struct monitor_data *mon_data);
-//	int  (*enable_single_tap)        (void *chip_data, bool enable);
+	u32  (*u32_trigger_reason)   (void *chip_data, int gesture_enable, int is_suspended);
+	void (*enable_fingerprint)   (void *chip_data, uint32_t enable);
+	void (*enable_gesture_mask)  (void *chip_data, uint32_t enable);
+	void (*screenon_fingerprint_info) (void *chip_data, struct fp_underscreen_info *fp_tpinfo);
+	void (*set_touch_direction)  (void *chip_data, uint8_t dir);
+	u8   (*get_touch_direction)  (void *chip_data);
+	void (*health_report)        (void *chip_data, struct goodix_health_info *mon_data);
+	int  (*enable_single_tap)        (void *chip_data, bool enable);
 	int  (*get_chip_info)        (void *chip_data);                                           /*return 0:success;other:failed*/
 	int  (*mode_switch)          (void *chip_data, work_mode mode, bool flag);                /*return 0:success;other:failed*/
 	int  (*get_touch_points)     (void *chip_data, struct point_info *points, int max_num);   /*return point bit-map*/
@@ -596,7 +596,6 @@ struct touchpanel_operations {
 	int  (*power_control)        (void *chip_data, bool enable);                              /*return 0:success;other:abnormal, need to jump out*/
 	int  (*reset_gpio_control)   (void *chip_data, bool enable);                              /*used for reset gpio*/
 	u8   (*trigger_reason)       (void *chip_data, int gesture_enable, int is_suspended);     /*clear innterrupt reg && detect irq trigger reason*/
-	u32  (*u32_trigger_reason)   (void *chip_data, int gesture_enable, int is_suspended);
 	u8   (*get_keycode)          (void *chip_data);                                           /*get touch-key code*/
 	int  (*esd_handle)           (void *chip_data);
 	int  (*fw_handle)            (void *chip_data);                                           /*return 0 normal; return -1:update failed;*/
@@ -615,28 +614,6 @@ eg:incell 3320 need to disable gesture to release inter pins for lcd resume*/
 	int  (*irq_handle_unlock)     (void *chip_info);                                          /*irq handler without mutex*/
 	int  (*async_work)           (void *chip_info);                                           /*async work*/
 	int  (*get_face_state)       (void *chip_info);                                          /*get face detect state*/
-	void (*health_report)        (void *chip_data);                                           /*data logger get*/
-	//void (*bootup_test)          (void *chip_data, const struct firmware *fw, struct monitor_data *mon_data, struct hw_resource *hw_res);   /*boot_up test*/
-	void (*get_gesture_coord)    (void *chip_data, uint32_t gesture_type);
-	void (*enable_fingerprint)   (void *chip_data, uint32_t enable);
-	void (*enable_gesture_mask)  (void *chip_data, uint32_t enable);
-	void    (*set_touch_direction)  (void *chip_data, uint8_t dir);
-	uint8_t (*get_touch_direction)  (void *chip_data);
-	void  (*screenon_fingerprint_info)     (void *chip_data, struct fp_underscreen_info *fp_tpinfo);                                  /*get gesture info of fingerprint underscreen when screen on*/
-	void (*freq_hop_trigger)    (void *chip_data);                   /*trigger frequency-hopping*/
-	void (*set_noise_modetest)  (void *chip_data, bool enable);
-	uint8_t (*get_noise_modetest)  (void *chip_data);
-	void (*tp_queue_work_prepare) (void);       /*If the tp ic need do something, use this!*/
-	int    (*set_report_point_first)  (void *chip_data, uint32_t enable);
-	int (*get_report_point_first)  (void *chip_data);
-	//void (*enable_kernel_grip)  (void *chip_data, struct kernel_grip_info *grip_info);          /*enable kernel grip in fw*/
-	int (*enable_single_tap)  (void *chip_data, bool enable);
-	bool (*tp_irq_throw_away)  (void *chip_data);
-	void (*rate_white_list_ctrl) (void *chip_data, int value);
-	//int  (*smooth_lv_set)       (void *chip_data, int level);
-#ifdef CONFIG_TOUCHPANEL_ALGORITHM
-	int  (*special_points_report)     (void *chip_data, struct point_info *points, int max_num);
-#endif
 };
 
 struct debug_info_proc_operations {
@@ -692,4 +669,3 @@ extern int msm_drm_notifier_call_chain(unsigned long val, void *v);
 extern int gf_opticalfp_irq_handler(int event);
 
 #endif
-
