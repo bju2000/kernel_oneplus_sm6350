@@ -70,12 +70,10 @@ unsigned int tp_debug = 0;
 unsigned int tp_register_times = 0;
 //unsigned int probe_time = 0;
 struct touchpanel_data *g_tp = NULL;
-struct point_info *pre_points = NULL;
 int tp_1v8_power = 1;
 static DECLARE_WAIT_QUEUE_HEAD(waiter);
 static struct input_dev *ps_input_dev = NULL;
 static int lcd_id = 0;
-static int project_code = 0;
 static int gesture_switch_value = 0;
 struct drm_panel *tp_active_panel;
 struct drm_panel *lcd_active_panel;
@@ -218,8 +216,6 @@ void operate_mode_switch(struct touchpanel_data *ts)
 		return;
 	}
 
-	TPD_INFO("%s:enter", __func__);
-
 	if (ts->is_suspended) {
 		if (ts->game_switch_support)
 			ts->ts_ops->mode_switch(ts->chip_data, MODE_GAME, false);
@@ -308,10 +304,8 @@ static void tp_touch_down(struct touchpanel_data *ts, struct point_info points, 
 					(points.y > ts->touch_major_limit.height_range) && (points.y < ts->resolution_info.max_y - ts->touch_major_limit.height_range)) {
 				input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, points.touch_major);
 			}
-			if(!CHK_BIT(ts->irq_slot, (1<<id))) {
+			if(!CHK_BIT(ts->irq_slot, (1<<id)))
 				TPD_DETAIL("first touch point id %d [%4d %4d %4d]\n", id, points.x, points.y, points.z);
-				TPD_INFO("first touch point id %d [%4d %4d %4d]\n", id, points.x, points.y, points.z);
-			}
 		}
 	input_report_abs(ts->input_dev, ABS_MT_POSITION_X, points.x);
 	input_report_abs(ts->input_dev, ABS_MT_POSITION_Y, points.y);
@@ -420,14 +414,12 @@ int sec_double_tap(struct gesture_info *gesture)
 static void tp_gesture_handle(struct touchpanel_data *ts)
 {
 	struct gesture_info gesture_info_temp;
-	bool enabled = false;
-	int key = -1;
+        bool enabled = false;
+        int key = -1;
 
-	if (project_code == 20886) {
-		if (!ts->ts_ops->enable_single_tap) {
-			TPD_INFO("not support ts->ts_ops->enable_single_tap \n");
-			return;
-		}
+	if (!ts->ts_ops->enable_single_tap) {
+		TPD_INFO("not support ts->ts_ops->enable_single_tap \n");
+		return;
 	}
 
 	if (!ts->ts_ops->get_gesture_info) {
@@ -436,9 +428,7 @@ static void tp_gesture_handle(struct touchpanel_data *ts)
 	}
 
 	memset(&gesture_info_temp, 0, sizeof(struct gesture_info));
-	if (project_code == 20886) {
-		ts->ts_ops->enable_single_tap(ts->chip_data, true);
-	}
+	ts->ts_ops->enable_single_tap(ts->chip_data, true);
 	ts->ts_ops->get_gesture_info(ts->chip_data, &gesture_info_temp);
 	tp_geture_info_transform(&gesture_info_temp, &ts->resolution_info);
 	if (DouTap_enable) {
@@ -537,9 +527,6 @@ static void tp_touch_release(struct touchpanel_data *ts)
 	int i = 0;
 
 #ifdef TYPE_B_PROTOCOL
-	if (ts->report_flow_unlock_support) {
-		mutex_lock(&ts->report_mutex);
-	}
 	for (i = 0; i < ts->max_num; i++) {
 		input_mt_slot(ts->input_dev, i);
 		input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, 0);
@@ -547,9 +534,6 @@ static void tp_touch_release(struct touchpanel_data *ts)
 	input_report_key(ts->input_dev, BTN_TOUCH, 0);
 	input_report_key(ts->input_dev, BTN_TOOL_FINGER, 0);
 	input_sync(ts->input_dev);
-	if (ts->report_flow_unlock_support) {
-		mutex_unlock(&ts->report_mutex);
-	}
 #else
 	input_report_key(ts->input_dev, BTN_TOUCH, 0);
 	input_report_key(ts->input_dev, BTN_TOOL_FINGER, 0);
@@ -672,7 +656,6 @@ static void tp_touch_handle(struct touchpanel_data *ts)
 	int obj_attention = 0;
 	struct point_info *points;
 	struct corner_info corner[4];
-	static bool up_status = false;
 	static struct point_info last_point = {.x = 0, .y = 0};
 	static int touch_report_num = 0;
 
@@ -686,7 +669,6 @@ static void tp_touch_handle(struct touchpanel_data *ts)
 		TPD_INFO("points kzalloc failed\n");
 		return;
 	}
-
 	memset(corner, 0, sizeof(corner));
 	if (ts->reject_point) {		//sensor will reject point when call mode.
 		if (ts->touch_count) {
@@ -706,11 +688,8 @@ static void tp_touch_handle(struct touchpanel_data *ts)
 		kfree(points);
 		return;
 	}
-
 	obj_attention = ts->ts_ops->get_touch_points(ts->chip_data, points, ts->max_num);
-	mutex_lock(&ts->report_mutex);
 	if ((obj_attention & TOUCH_BIT_CHECK) != 0) {
-		up_status = false;
 		for (i = 0; i < ts->max_num; i++) {
 			if (((obj_attention & TOUCH_BIT_CHECK) >> i) & 0x01 && (points[i].status == 0)) // buf[0] == 0 is wrong point, no process
 				continue;
@@ -740,15 +719,10 @@ static void tp_touch_handle(struct touchpanel_data *ts)
 			}
 #ifdef TYPE_B_PROTOCOL
 			else {
-				if (pre_points[i].status != 0) {
-					TPD_INFO("last touch point id %d [%4d %4d %4d]\n", i, pre_points[i].x, pre_points[i].y, pre_points[i].z);
-				}
 				input_mt_slot(ts->input_dev, i);
 				input_mt_report_slot_state(ts->input_dev, MT_TOOL_FINGER, 0);
-				CLR_BIT(ts->irq_slot, (1<<i));
 			}
 #endif
-			memcpy(&pre_points[i], &points[i], sizeof(struct point_info));
 		}
 
 		if(ts->corner_delay_up > -1) {
@@ -763,12 +737,6 @@ static void tp_touch_handle(struct touchpanel_data *ts)
 			queue_work(ts->delta_read_wq, &ts->read_delta_work);
 		}
 	} else {
-		if (up_status) {
-			tp_touch_up(ts);
-			mutex_unlock(&ts->report_mutex);
-			kfree(points);
-			return;
-		}
 		finger_num = 0;
 		touch_report_num = 0;
 #ifdef TYPE_B_PROTOCOL
@@ -780,7 +748,6 @@ static void tp_touch_handle(struct touchpanel_data *ts)
 		tp_touch_up(ts);
 		ts->view_area_touched = 0;
 		ts->irq_slot = 0;
-		up_status = true;
 		ts->corner_delay_up = -1;
 		TPD_DETAIL("all touch up,view_area_touched=%d finger_num=%d\n",ts->view_area_touched, finger_num);
 		TPD_INFO("last point x:%d y:%d\n", last_point.x, last_point.y);
@@ -790,8 +757,6 @@ static void tp_touch_handle(struct touchpanel_data *ts)
 	input_sync(ts->input_dev);
 	ts->touch_count = finger_num;
 	kfree(points);
-
-	mutex_unlock(&ts->report_mutex);
 }
 
 static void tp_btnkey_release(struct touchpanel_data *ts)
@@ -914,8 +879,6 @@ static void tp_work_common_callback(void)
 {
 	struct touchpanel_data *ts;
 
-	TPD_DEBUG("%s:enter\n", __func__);
-
 	if (g_tp == NULL)
 		return;
 	ts = g_tp;
@@ -949,13 +912,7 @@ static void tp_work_func(struct touchpanel_data *ts)
 			tp_touch_handle(ts);
 		}
 		if (CHK_BIT(cur_event, IRQ_DATA_LOGGER)) {
-			if(ts->int_mode == UNBANNABLE) {
-				tp_healthreport_handle(ts);
-			} else if (project_code == 20886) {
-				health_monitor_handle(ts);
-			}else {
-				tp_datalogger_handle(ts);
-			}
+			tp_datalogger_handle(ts);
 		}
 		if (CHK_BIT(cur_event, IRQ_FACE_STATE) && ts->fd_enable) {
 			tp_face_detect_handle(ts);
@@ -1143,8 +1100,6 @@ static enum hrtimer_restart touchpanel_timer_func(struct hrtimer *timer)
 static irqreturn_t tp_irq_thread_fn(int irq, void *dev_id)
 {
 	struct touchpanel_data *ts = (struct touchpanel_data *)dev_id;
-
-	TPD_DEBUG("%s: int_mode = %d\n", __func__, ts->int_mode);
 
 	if (ts->int_mode == BANNABLE) {
 		__pm_stay_awake(ts->source);	//avoid system enter suspend lead to i2c error
@@ -1524,11 +1479,7 @@ static ssize_t proc_limit_switch_write(struct file *file, const char __user *buf
 	TPD_DEBUG("%s: ts->limit_switch = %d\n", __func__, value);
 	if (ts->is_suspended == 0) {
 		mutex_lock(&ts->mutex);
-		if (project_code == 20886) {
-			ts->ts_ops->mode_switch(ts->chip_data, MODE_EDGE, ts->limit_switch);
-		} else {
-			ts->ts_ops->mode_switch(ts->chip_data, MODE_LIMIT_SWITCH, ts->limit_switch);
-		}
+		ts->ts_ops->mode_switch(ts->chip_data, MODE_EDGE, ts->limit_switch);
 		mutex_unlock(&ts->mutex);
 	}
 	return count;
@@ -4064,17 +4015,12 @@ static void init_parse_dts(struct device *dev, struct touchpanel_data *ts)
 	ts->audio_noise_support		= of_property_read_bool(np, "audio_noise_support");
 	ts->fw_edge_limit_support	= of_property_read_bool(np, "fw_edge_limit_support");
 	ts->spuri_fp_touch.lcd_trigger_fp_check = of_property_read_bool(np, "lcd_trigger_fp_check");
-	ts->report_flow_unlock_support = of_property_read_bool(np, "report_flow_unlock_support");
-	ts->tp_resume_delay			= of_property_read_bool(np, "tp_resume_delay");
 	ts->spuri_fp_touch.lcd_resume_ok = true;
-
-	TPD_DEBUG("ts->report_flow_unlock_support = %d", ts->report_flow_unlock_support);
 
 	rc = of_property_read_string(np, "project-name", &ts->panel_data.project_name);
 	if (rc < 0) {
 		TPD_INFO("failed to get project name, firmware/limit name will be invalid\n");
 	}
-
 	rc = of_property_read_string(np, "chip-name", &ts->panel_data.chip_name);
 	if (rc < 0) {
 		TPD_INFO("failed to get chip name, firmware/limit name will be invalid\n");
@@ -4085,21 +4031,10 @@ static void init_parse_dts(struct device *dev, struct touchpanel_data *ts)
 		ts->panel_data.tp_type = 0;
 	}
 
-	rc = of_property_read_u32(np, "tp_resume_delay_time", &ts->tp_resume_delay_time);
-	if (rc < 0) {
-		TPD_INFO("tp_resume_delay_time is not specified\n");
-		ts->tp_resume_delay_time = 0;
-	}
-
 	rc = of_property_read_u32(np, "vdd_2v8_volt", &ts->hw_res.vdd_volt);
 	if (rc < 0) {
 		ts->hw_res.vdd_volt = 0;
 		TPD_INFO("vdd_2v8_volt not defined\n");
-	}
-
-	if (strcmp(ts->panel_data.project_name, "20886") == 0) { // comparing project code of avicii
-		project_code = 20886;
-		TPD_INFO("project-code***************: %d ", project_code);
 	}
 
 	// irq gpio
@@ -4708,7 +4643,6 @@ int register_common_touch_device(struct touchpanel_data *pdata)
 
 	//step3 : mutex init
 	mutex_init(&ts->mutex);
-	mutex_init(&ts->report_mutex);
 	init_completion(&ts->pm_complete);
 	init_completion(&ts->fw_complete);
 	init_completion(&ts->resume_complete);
@@ -5362,7 +5296,7 @@ static void speedup_resume(struct work_struct *work)
 	}
 	ts->skip_reset_in_resume = false;
 	if (!ts->gesture_enable) {
-		sec_ts_pinctrl_configure(&ts->hw_res, true);
+	//	sec_ts_pinctrl_configure(&ts->hw_res, true);
 	}
 
 	//step4:If use resume notify, exit wait first
@@ -5521,7 +5455,7 @@ static int tfb_notifier_callback(struct notifier_block *self, unsigned long even
 						TPD_INFO("disable tp isr 111,  tp irq  %d\n", ts->irq);
 						disable_irq_nosync(ts->irq);	//avoid iic error
 					}
-					tp_suspend(ts->dev);
+					//tp_suspend(ts->dev);
 					if (!ts->gesture_enable) {
 						if (ts->int_mode == UNBANNABLE)
 							ts->ts_ops->power_control(ts->chip_data, 0);
@@ -5585,7 +5519,9 @@ void tp_i2c_suspend(struct touchpanel_data *ts)
 			return;
 		}
 	}
-	disable_irq_nosync(ts->irq);
+	if (ts->int_mode == BANNABLE) {
+		disable_irq_nosync(ts->irq);
+	}
 }
 
 void tp_i2c_resume(struct touchpanel_data *ts)
@@ -5594,11 +5530,13 @@ void tp_i2c_resume(struct touchpanel_data *ts)
 		if (ts->gesture_enable == 1) {
 			/*disable gpio wake system through intterrupt*/
 			disable_irq_wake(ts->irq);
-			goto OUT;
+			goto out;
 		}
 	}
-	enable_irq(ts->irq);
-OUT:
+	if (ts->int_mode == BANNABLE) {
+		enable_irq(ts->irq);
+	}
+out:
 	ts->i2c_ready = true;
 	if (ts->spurious_fp_support && ts->spuri_fp_touch.fp_trigger) {
 		wake_up_interruptible(&waiter);
