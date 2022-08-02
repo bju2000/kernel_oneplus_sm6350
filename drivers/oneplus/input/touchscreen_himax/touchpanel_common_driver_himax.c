@@ -1198,20 +1198,6 @@ static ssize_t proc_coordinate_read(struct file *file, char __user *user_buf, si
 	return ret;
 }
 
-static const struct file_operations proc_gesture_control_fops = {
-	.write = proc_gesture_control_write,
-	.read  = proc_gesture_control_read,
-	.open  = simple_open,
-	.owner = THIS_MODULE,
-};
-
-static const struct file_operations proc_gesture_control_fops = {
-	.write = proc_gesture_control_write,
-	.read  = proc_gesture_control_read,
-	.open  = simple_open,
-	.owner = THIS_MODULE,
-};
-
 static const struct file_operations proc_coordinate_fops = {
 	.read  = proc_coordinate_read,
 	.open  = simple_open,
